@@ -25,47 +25,55 @@
   onMount(load);
 
   function votedYes(movie) {
-    return movie.voted_yes.includes($currentUser.name);
+    return movie.voted_yes.some(name => name.toLowerCase() === $currentUser.name.toLowerCase());
   }
 
   function votedNo(movie) {
-    return movie.voted_no.includes($currentUser.name);
+    return movie.voted_no.some(name => name.toLowerCase() === $currentUser.name.toLowerCase());
   }
 
 async function toggle(movie, wants) {
-    const alreadyVotedYes = movie.voted_yes.includes($currentUser.name);
-    const alreadyVotedNo = movie.voted_no.includes($currentUser.name);
+  const currentName = $currentUser.name;
+  
+  // Case-insensitive helper function
+  const isUser = (name) => name.toLowerCase() === currentName.toLowerCase();
 
-    if ((wants && alreadyVotedYes) || (!wants && alreadyVotedNo)) {
-      return;
-    }
+  const alreadyVotedYes = movie.voted_yes.some(isUser);
+  const alreadyVotedNo = movie.voted_no.some(isUser);
 
-    const prevYes = [...movie.voted_yes];
-    const prevNo = [...movie.voted_no];
-
-    // Rimuovi il nome da entrambe le liste
-    movie.voted_yes = movie.voted_yes.filter((n) => n !== $currentUser.name);
-    movie.voted_no = movie.voted_no.filter((n) => n !== $currentUser.name);
-
-    if (wants) {
-      movie.voted_yes = [...movie.voted_yes, $currentUser.name];
-    } else {
-      movie.voted_no = [...movie.voted_no, $currentUser.name];
-    }
-
-    movies = movies;
-
-    try {
-      await api.toggleWatch($currentUser.id, movie.id, wants);
-    } catch (e) {
-      // Ripristina in caso di errore di rete
-      movie.voted_yes = prevYes;
-      movie.voted_no = prevNo;
-      movies = movies;
-      error = e.message;
-    }
+  // Guard clause: stop if clicking the option already selected
+  if ((wants && alreadyVotedYes) || (!wants && alreadyVotedNo)) {
+    return;
   }
 
+  const prevYes = [...movie.voted_yes];
+  const prevNo = [...movie.voted_no];
+
+  // Remove current user from both arrays case-insensitively
+  const cleanYes = movie.voted_yes.filter((n) => !isUser(n));
+  const cleanNo = movie.voted_no.filter((n) => !isUser(n));
+
+  if (wants) {
+    movie.voted_yes = [...cleanYes, currentName];
+    movie.voted_no = cleanNo;
+  } else {
+    movie.voted_yes = cleanYes;
+    movie.voted_no = [...cleanNo, currentName];
+  }
+
+  // Trigger Svelte reactivity
+  movies = movies;
+
+  try {
+    await api.toggleWatch($currentUser.id, movie.id, wants);
+  } catch (e) {
+    // Revert UI on network failure
+    movie.voted_yes = prevYes;
+    movie.voted_no = prevNo;
+    movies = movies;
+    error = e.message;
+  }
+}
   async function addMovie() {
     const title = newTitle.trim();
     if (!title) return;
