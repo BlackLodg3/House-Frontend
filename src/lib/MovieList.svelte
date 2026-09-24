@@ -9,6 +9,8 @@
   let newTitle = '';
   let adding = false;
 
+  let expandedMovieId = null; // tracks extra details on movie (votes)
+
   async function load() {
     loading = true;
     error = '';
@@ -24,6 +26,10 @@
 
   onMount(load);
 
+  function toggleExpand(movieId) {
+    expandedMovieId = expandedMovieId === movieId ? null : movieId;
+  }
+
   function votedYes(movie) {
     return movie.voted_yes.some(name => name.toLowerCase() === $currentUser.name.toLowerCase());
   }
@@ -32,48 +38,43 @@
     return movie.voted_no.some(name => name.toLowerCase() === $currentUser.name.toLowerCase());
   }
 
-async function toggle(movie, wants) {
-  const currentName = $currentUser.name;
-  
-  // Case-insensitive helper function
-  const isUser = (name) => name.toLowerCase() === currentName.toLowerCase();
+  async function toggle(movie, wants) {
+    const currentName = $currentUser.name;
+    const isUser = (name) => name.toLowerCase() === currentName.toLowerCase();
 
-  const alreadyVotedYes = movie.voted_yes.some(isUser);
-  const alreadyVotedNo = movie.voted_no.some(isUser);
+    const alreadyVotedYes = movie.voted_yes.some(isUser);
+    const alreadyVotedNo = movie.voted_no.some(isUser);
 
-  // Guard clause: stop if clicking the option already selected
-  if ((wants && alreadyVotedYes) || (!wants && alreadyVotedNo)) {
-    return;
-  }
+    if ((wants && alreadyVotedYes) || (!wants && alreadyVotedNo)) {
+      return;
+    }
 
-  const prevYes = [...movie.voted_yes];
-  const prevNo = [...movie.voted_no];
+    const prevYes = [...movie.voted_yes];
+    const prevNo = [...movie.voted_no];
 
-  // Remove current user from both arrays case-insensitively
-  const cleanYes = movie.voted_yes.filter((n) => !isUser(n));
-  const cleanNo = movie.voted_no.filter((n) => !isUser(n));
+    const cleanYes = movie.voted_yes.filter((n) => !isUser(n));
+    const cleanNo = movie.voted_no.filter((n) => !isUser(n));
 
-  if (wants) {
-    movie.voted_yes = [...cleanYes, currentName];
-    movie.voted_no = cleanNo;
-  } else {
-    movie.voted_yes = cleanYes;
-    movie.voted_no = [...cleanNo, currentName];
-  }
+    if (wants) {
+      movie.voted_yes = [...cleanYes, currentName];
+      movie.voted_no = cleanNo;
+    } else {
+      movie.voted_yes = cleanYes;
+      movie.voted_no = [...cleanNo, currentName];
+    }
 
-  // Trigger Svelte reactivity
-  movies = movies;
-
-  try {
-    await api.toggleWatch($currentUser.id, movie.id, wants);
-  } catch (e) {
-    // Revert UI on network failure
-    movie.voted_yes = prevYes;
-    movie.voted_no = prevNo;
     movies = movies;
-    error = e.message;
+
+    try {
+      await api.toggleWatch($currentUser.id, movie.id, wants);
+    } catch (e) {
+      movie.voted_yes = prevYes;
+      movie.voted_no = prevNo;
+      movies = movies;
+      error = e.message;
+    }
   }
-}
+
   async function addMovie() {
     const title = newTitle.trim();
     if (!title) return;
@@ -120,33 +121,69 @@ async function toggle(movie, wants) {
     <ul class="movie-list">
       {#each movies as movie (movie.id)}
         <li class="movie-card" class:rewatch={movie.watched}>
-          <div class="movie-top">
-            <div class="title-group">
-              <span class="title">{movie.title}</span>
-              {#if movie.watched}
-                <span class="badge-rewatch">Già visto 🔄</span>
-              {/if}
+          <!-- Clicking header/top portion toggles expanded voters view -->
+          <div
+            class="movie-header-clickable"
+            on:click={() => toggleExpand(movie.id)}
+            role="button"
+            tabindex="0"
+            on:keydown={(e) => e.key === 'Enter' && toggleExpand(movie.id)}
+          >
+            <div class="movie-top">
+              <div class="title-group">
+                <span class="title">{movie.title}</span>
+                {#if movie.watched}
+                  <span class="badge-rewatch">Già visto 🔄</span>
+                {/if}
+              </div>
+              <span class="added-by">proposto da {movie.added_by}</span>
             </div>
-            <span class="added-by">proposto da {movie.added_by}</span>
+
+            <div class="votes">
+              <span class="vote-count yes">👍 {movie.voted_yes.length}</span>
+              <span class="vote-count no">👎 {movie.voted_no.length}</span>
+              <span class="expand-indicator">
+                {expandedMovieId === movie.id ? '▲ Nascondi voti' : '▼ Mostra voti'}
+              </span>
+            </div>
           </div>
 
-          <div class="votes">
-            <span class="vote-count yes">👍 {movie.voted_yes.length}</span>
-            <span class="vote-count no">👎 {movie.voted_no.length}</span>
-          </div>
+          <!-- Expanded Voter Details -->
+          {#if expandedMovieId === movie.id}
+            <div class="voters-detail">
+              <div class="voter-group">
+                <span class="voter-title no-title">👎 Hanno votato No ({movie.voted_no.length}):</span>
+                {#if movie.voted_no.length > 0}
+                  <p class="voter-names">{movie.voted_no.join(', ')}</p>
+                {:else}
+                  <p class="voter-none">Nessuno</p>
+                {/if}
+              </div>
 
+              <div class="voter-group">
+                <span class="voter-title yes-title">👍 Hanno votato Sì ({movie.voted_yes.length}):</span>
+                {#if movie.voted_yes.length > 0}
+                  <p class="voter-names">{movie.voted_yes.join(', ')}</p>
+                {:else}
+                  <p class="voter-none">Nessuno</p>
+                {/if}
+              </div>
+            </div>
+          {/if}
+
+          <!-- Action Buttons -->
           <div class="actions">
             <button
               class="vote-btn yes-btn"
               class:active={votedYes(movie)}
-              on:click={() => toggle(movie, true)}
+              on:click|stopPropagation={() => toggle(movie, true)}
             >
               Sì
             </button>
             <button
               class="vote-btn no-btn"
               class:active={votedNo(movie)}
-              on:click={() => toggle(movie, false)}
+              on:click|stopPropagation={() => toggle(movie, false)}
             >
               No
             </button>
@@ -226,6 +263,11 @@ async function toggle(movie, wants) {
     border-left-color: var(--text-dim);
   }
 
+  .movie-header-clickable {
+    cursor: pointer;
+    user-select: none;
+  }
+
   .movie-top {
     display: flex;
     justify-content: space-between;
@@ -265,10 +307,59 @@ async function toggle(movie, wants) {
 
   .votes {
     display: flex;
+    align-items: center;
     gap: 1rem;
     font-size: 0.85rem;
     color: var(--text-dim);
     margin-bottom: 0.75rem;
+  }
+
+  .expand-indicator {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--gold);
+  }
+
+  /* Voter Breakdown Panel */
+  .voters-detail {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .voter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .voter-title {
+    font-weight: 600;
+  }
+
+  .voter-title.no-title {
+    color: var(--red, #c1443c);
+  }
+
+  .voter-title.yes-title {
+    color: var(--green, #4f9d6e);
+  }
+
+  .voter-names {
+    margin: 0;
+    color: var(--text);
+  }
+
+  .voter-none {
+    margin: 0;
+    color: var(--text-dim);
+    font-style: italic;
   }
 
   .actions {
