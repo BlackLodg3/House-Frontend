@@ -12,7 +12,7 @@
   let flashTimer = null;
   let history = [];
   let declaring = false;
-  let winnerDeclared = false; // <-- Traccia se abbiamo già registrato il vincitore
+  let winnerDeclared = false;
 
   $: segAngle = remaining.length > 0 ? 360 / remaining.length : 360;
   $: gradient = remaining

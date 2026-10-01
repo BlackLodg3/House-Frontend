@@ -5,6 +5,7 @@
   import PresentSelector from './lib/PresentSelector.svelte';
   import Wheel from './lib/Wheel.svelte';
   import Winner from './lib/Winner.svelte';
+  import StrictnessInfo from './lib/StrictnessInfo.svelte';
 </script>
 
 <main>
@@ -14,6 +15,8 @@
     <MovieList />
   {:else if $view === 'present'}
     <PresentSelector />
+  {:else if $view === 'strictness-info'}
+    <StrictnessInfo />
   {:else if $view === 'wheel'}
     <Wheel />
   {:else if $view === 'winner'}
