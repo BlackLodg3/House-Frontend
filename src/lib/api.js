@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL ||  '';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 const ERROR_TRANSLATIONS = {
   'Flatmate not found': 'Coinquilino non trovato',
@@ -7,9 +7,11 @@ const ERROR_TRANSLATIONS = {
   'Invalid request payload': 'Richiesta non valida',
   'Missing movie_name or user_id': 'Manca il titolo del film o l\'utente',
   'Missing user_id or movie_id': 'Dati mancanti',
+  'Missing or invalid movie_id or length': 'Durata o film non valido',
   'At least one present user ID required': 'Seleziona almeno un presente',
   'Missing movie_id or present_user_ids': 'Dati mancanti per assegnare il vincitore',
   'Movie not found': 'Film non trovato',
+  'Failed to update movie length': 'Impossibile aggiornare la durata del film',
 };
 
 function translate(message) {
@@ -84,6 +86,13 @@ export const api = {
     return request('/api/movies/winner', {
       method: 'POST',
       body: { movie_id: movieId, present_user_ids: presentUserIds },
+    });
+  },
+
+  updateMovieLength(movieId, length) {
+    return request('/api/movies/length', {
+      method: 'POST',
+      body: { movie_id: movieId, length: length },
     });
   },
 };

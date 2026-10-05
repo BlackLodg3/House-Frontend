@@ -11,6 +11,11 @@
 
   let expandedMovieId = null; // tracks extra details on movie (votes)
 
+  // Length editing state
+  let editingLengthMovieId = null;
+  let lengthInput = '';
+  let savingLength = false;
+
   async function load() {
     loading = true;
     error = '';
@@ -28,6 +33,34 @@
 
   function toggleExpand(movieId) {
     expandedMovieId = expandedMovieId === movieId ? null : movieId;
+  }
+
+  function startEditLength(movie) {
+    editingLengthMovieId = movie.id;
+    lengthInput = movie.length ? movie.length.toString() : '';
+  }
+
+  function cancelEditLength() {
+    editingLengthMovieId = null;
+    lengthInput = '';
+  }
+
+  async function saveLength(movie) {
+    const parsedLength = parseInt(lengthInput, 10);
+    if (isNaN(parsedLength) || parsedLength <= 0) return;
+
+    savingLength = true;
+    error = '';
+    try {
+      await api.updateMovieLength(movie.id, parsedLength);
+      movie.length = parsedLength; // Optimistically update local array
+      movies = movies;
+      cancelEditLength();
+    } catch (e) {
+      error = e.message;
+    } finally {
+      savingLength = false;
+    }
   }
 
   function votedYes(movie) {
@@ -121,7 +154,6 @@
     <ul class="movie-list">
       {#each movies as movie (movie.id)}
         <li class="movie-card" class:rewatch={movie.watched}>
-          <!-- Clicking header/top portion toggles expanded voters view -->
           <div
             class="movie-header-clickable"
             on:click={() => toggleExpand(movie.id)}
@@ -132,6 +164,9 @@
             <div class="movie-top">
               <div class="title-group">
                 <span class="title">{movie.title}</span>
+                {#if movie.length}
+                  <span class="badge-length">⏱️ {movie.length} min</span>
+                {/if}
                 {#if movie.watched}
                   <span class="badge-rewatch">Già visto 🔄</span>
                 {/if}
@@ -146,6 +181,31 @@
                 {expandedMovieId === movie.id ? '▲ Nascondi voti' : '▼ Mostra voti'}
               </span>
             </div>
+          </div>
+
+          <!-- Edit Length Form / Trigger -->
+          <div class="length-section">
+            {#if editingLengthMovieId === movie.id}
+              <form class="length-form" on:submit|preventDefault={() => saveLength(movie)}>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Minuti (es. 120)"
+                  bind:value={lengthInput}
+                  disabled={savingLength}
+                />
+                <button class="cta small-btn" type="submit" disabled={savingLength || !lengthInput}>
+                  {savingLength ? '...' : 'Salva'}
+                </button>
+                <button class="secondary-btn small-btn" type="button" on:click={cancelEditLength}>
+                  Annulla
+                </button>
+              </form>
+            {:else}
+              <button class="link-btn" on:click={() => startEditLength(movie)}>
+                ✏️ {movie.length ? 'Modifica durata' : 'Aggiungi durata'}
+              </button>
+            {/if}
           </div>
 
           <!-- Expanded Voter Details -->
@@ -289,6 +349,16 @@
     font-weight: 600;
   }
 
+  .badge-length {
+    font-size: 0.75rem;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
   .badge-rewatch {
     font-size: 0.7rem;
     background: var(--surface-raised);
@@ -318,6 +388,46 @@
     margin-left: auto;
     font-size: 0.75rem;
     color: var(--gold);
+  }
+
+  /* Length Editing CSS */
+  .length-section {
+    margin-bottom: 0.75rem;
+  }
+
+  .link-btn {
+    background: none;
+    border: none;
+    color: var(--gold);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .length-form {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .length-form input {
+    width: 110px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .small-btn {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+    width: auto;
+  }
+
+  .secondary-btn {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: var(--radius);
+    cursor: pointer;
   }
 
   /* Voter Breakdown Panel */
