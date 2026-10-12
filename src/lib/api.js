@@ -75,10 +75,10 @@ export const api = {
     });
   },
 
-  spinPool(presentUserIds, strictAttendance) {
+  spinPool(presentUserIds, strictAttendance, maxDuration) {
     return request('/api/movies/spin-pool', {
       method: 'POST',
-      body: { present_user_ids: presentUserIds, strict_attendance: strictAttendance },
+      body: { present_user_ids: presentUserIds, strict_attendance: strictAttendance, max_duration: maxDuration},
     });
   },
 

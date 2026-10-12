@@ -6,6 +6,7 @@
   let flatmates = [];
   let selected = new Set();
   let strictLevel = 0; // 0: Soft, 1: Medium, 2: Hard
+  let maxDuration = 0; // 0: No limit (default)
   let loading = true;
   let error = '';
   let generating = false;
@@ -14,6 +15,13 @@
     { value: 0, label: 'Soft', color: 'soft', img: '/strictness_soft.webp' },
     { value: 1, label: 'Medium', color: 'medium', img: '/strictness_medium.webp' },
     { value: 2, label: 'Hard', color: 'hard', img: '/strictness_hard.webp' }
+  ];
+
+  const durationPresets = [
+    { value: 100, label: '100 min' },
+    { value: 130, label: '130 min' },
+    { value: 190, label: '190 min' },
+    { value: 0, label: 'No limit' }
   ];
 
   onMount(async () => {
@@ -43,8 +51,8 @@
     error = '';
     try {
       const presentUserIds = Array.from(selected);
-      // Pass strictLevel as an integer (0, 1, or 2)
-      const res = await api.spinPool(presentUserIds, strictLevel);
+      // Passa strictLevel e maxDuration aggiornati
+      const res = await api.spinPool(presentUserIds, strictLevel, maxDuration);
       const pool = res.movies || [];
       if (pool.length === 0) {
         error = 'Nessun film idoneo con questa selezione.';
@@ -89,6 +97,40 @@
         </li>
       {/each}
     </ul>
+
+    <!-- Sezione Durata Massima -->
+    <div class="duration-section">
+      <div class="section-header">
+        <span class="section-label">Durata massima</span>
+      </div>
+
+      <div class="duration-controls">
+        <div class="duration-presets">
+          {#each durationPresets as preset}
+            <button
+              type="button"
+              class="preset-btn"
+              class:active={maxDuration === preset.value}
+              on:click={() => (maxDuration = preset.value)}
+            >
+              {preset.label}
+            </button>
+          {/each}
+        </div>
+
+        <div class="duration-input-wrapper">
+          <input
+            type="number"
+            min="0"
+            bind:value={maxDuration}
+            class="duration-input"
+            placeholder="Minuti"
+          />
+          <span class="input-unit">min</span>
+        </div>
+      </div>
+    </div>
+
     <div class="strictness-section">
       <div class="section-header">
         <span class="section-label">Strictness level</span>
@@ -176,19 +218,85 @@
     accent-color: var(--gold);
   }
 
-  .strictness-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    margin-bottom: 1.75rem;
-  }
-
   .section-label {
     color: var(--text-dim);
     font-size: 0.85rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+  }
+
+  /* Stili per la sezione durata */
+  .duration-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .duration-controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .duration-presets {
+    display: flex;
+    gap: 0.4rem;
+    flex: 1;
+  }
+
+  .preset-btn {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.3rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .preset-btn.active {
+    border-color: var(--gold);
+    background: var(--gold-glow, rgba(212, 175, 55, 0.1));
+    color: var(--gold);
+  }
+
+  .duration-input-wrapper {
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0 0.5rem;
+    width: 100px;
+  }
+
+  .duration-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: 0.9rem;
+    padding: 0.6rem 0;
+    text-align: right;
+    outline: none;
+  }
+
+  .input-unit {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-left: 0.3rem;
+  }
+
+  .strictness-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 1.75rem;
   }
 
   .strict-buttons {
